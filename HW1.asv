@@ -1,0 +1,64 @@
+% Q5
+
+clear; close all; clc;
+
+N = 100;
+Ns = 10; % Number of symbols to be plotted
+Tsym = 1; % Symbol time in seconds
+oversampleFactor = 500;
+Tres = Tsym / oversampleFactor;
+t = 0:Tres:Ns*Tsym-Tres; % Time axis for symbols to be plotted
+
+bc = sign(2 * rand(1,N) - 1);
+bs = sign(2 * rand(1,N) - 1);
+
+uc = zeros(size(t));
+us = zeros(size(t));
+
+for n = 1:Ns
+    idx = (t >= (n-1)*Tsym) & (t < n*Tsym);
+    uc(idx) = bc(n);
+    us(idx) = bs(n);
+end
+
+%% 5a. Plot baseband signals
+figure
+subplot(2,1,1)
+plot(t, uc, 'LineWidth', 1.5)
+ylim([-1.5 1.5])
+grid on
+title('u_c(t) over 10 symbols')
+xlabel('t')
+ylabel('Amplitude')
+
+subplot(2,1,2)
+plot(t, us, 'LineWidth', 1.5)
+ylim([-1.5 1.5])
+grid on
+title('u_s(t) over 10 symbols')
+xlabel('t')
+ylabel('Amplitude')
+
+%% 5b. Upconvert baseband real signal
+t = 0:Tres:4*Tsym-Tres;
+carrier = cos(40*pi*t);
+
+uc = zeros(size(t));
+us = zeros(size(t));
+
+for n = 1:4
+    idx = (t >= (n-1)*Tsym) & (t < n*Tsym);
+    uc(idx) = bc(n);
+    us
+end
+
+up1 = uc .* carrier;
+
+
+figure
+subplot(2,1,1)
+plot(t, up1, 'LineWidth', 1.5)
+grid on
+title('u_p,1(t) over 4 symbols')
+xlabel('t')
+ylabel('Amplitude')
