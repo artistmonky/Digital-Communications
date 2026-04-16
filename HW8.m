@@ -25,7 +25,6 @@ axis([-5 5 -0.3 1.1]);
 
 % We note that increasing alpha / excess bandwidth causes the sidelobes to attenuate faster.
 
-
 %% Q1g and Q1h.
 clear all; close all; clc;
 
@@ -39,12 +38,12 @@ ts = T / m;           % Sampling interval
 fs_desired = 1 / (64 * T);               % Desired frequency granularity
 Nmin = ceil(1 / (fs_desired * ts));      % Minimum length DFT
 Nfft = 2^(nextpow2(Nmin));               % FFT size (power of 2)
-
 fs = 1 / (Nfft * ts);                    % Actual frequency resolution
-% Normalized frequency vector (f * T)
+
+% Normalized frequency vector
 freqs_norm = ((1:Nfft) - 1 - Nfft/2) * fs * T; 
 
-% Generate time domain signals with the given RCP function
+% Time domain signals with the given RCP
 [rc_2, ~] = raised_cosine(alpha, m, 2); % Truncation at [-2T, 2T]
 [rc_5, ~] = raised_cosine(alpha, m, 5); % Truncation at [-5T, 5T]
 
@@ -52,8 +51,6 @@ freqs_norm = ((1:Nfft) - 1 - Nfft/2) * fs * T;
 % fft function automatically zero-pads the time-domain signal to Nfft
 RC_2_f = ts * fft(rc_2, Nfft);
 RC_5_f = ts * fft(rc_5, Nfft);
-
-% Center the spectrums
 RC_2_f_centered = fftshift(RC_2_f);
 RC_5_f_centered = fftshift(RC_5_f);
 
@@ -61,7 +58,6 @@ figure;
 plot(freqs_norm, abs(RC_2_f_centered), 'r', 'LineWidth', 1.5);
 hold on;
 plot(freqs_norm, abs(RC_5_f_centered), 'b', 'LineWidth', 1.5);
-
 xlabel('Normalized Frequency (fT)');
 ylabel('Magnitude Spectrum');
 title('Effect of Truncation on Spectrum');
@@ -71,15 +67,17 @@ grid on;
 hold off;
 
 
+% High-Res FFT for Bandwidth Calculation
 Nfft_high = 2^20; 
 
 % Recompute FFTs with zero-padding
 RC_2_f_high = ts * fft(rc_2, Nfft_high);
 RC_5_f_high = ts * fft(rc_5, Nfft_high);
 
-% New high-res frequency vector
+
 fs_actual = 1 / ts;
-freqs_high_norm = ((1:Nfft_high) - 1 - Nfft_high/2) * fs_actual * T;
+df_high = fs_actual / Nfft_high; % Calculate the frequency bin step size (resolution)
+freqs_high_norm = ((1:Nfft_high) - 1 - Nfft_high/2) * df_high * T; 
 
 P2 = abs(fftshift(RC_2_f_high)).^2;
 P5 = abs(fftshift(RC_5_f_high)).^2;
@@ -109,18 +107,54 @@ idx_high_5 = find(norm_E5 >= target_high, 1);
 bw_high_2 = f_abs_sorted(idx_high_2);
 bw_high_5 = f_abs_sorted(idx_high_5);
 
+% Print Results
 fprintf('Baseband Bandwidth Calculations (alpha = %.2f)\n', alpha);
-fprintf('Nominal Ideal Bandwidth: %.3f / T\n', (1+alpha)/2);
+fprintf('Ideal Bandwidth: %.3f / T\n', (1+alpha)/2);
 
-fprintf('95%% Energy Containment Bandwidth:');
+fprintf('\n95%% Energy Containment Bandwidth:\n');
 fprintf('Truncation [-2T, 2T]: %.4f / T\n', bw_95_2);
 fprintf('Truncation [-5T, 5T]: %.4f / T\n', bw_95_5);
 % We see that the pulse energy is closely matched in terms of containment
-% bandwidth.
+% bandwidth. This is because most of the energy is contained in the mainlobe.
 
-fprintf('(1 - 1e-8) Energy Containment Bandwidth:');
-fprintf('Truncation [-2T, 2T]:      %.4f / T\n', bw_high_2);
-fprintf('Truncation [-5T, 5T]:      %.4f / T\n', bw_high_5);
-fprintf('(Note: -2T truncation forces you to look much further for the tails)\n');
+fprintf('\n(1 - 1e-8) Energy Containment Bandwidth:\n');
+fprintf('Truncation [-2T, 2T]: %.3f / T\n', bw_high_2);
+fprintf('Truncation [-5T, 5T]: %.3f / T\n', bw_high_5);
 % We see that truncating the pulse at +-2T causes the pulse energy to
-% be spread much wider in frequency.
+% be spread much wider in frequency, because of the resulting sidelobes.
+
+%% Q2a.
+omega = linspace(-pi, pi, 1000);
+
+q_amp = sqrt(1.25) * abs(0.4*exp(1j*omega) + 1 + 0.4*exp(-1j*omega));
+
+figure;
+plot(omega, q_amp, 'LineWidth', 2);
+grid on;
+title('Amplitude of the Frequency Spectrum');
+xlabel('\Omega (radians/sample)');
+ylabel('|Q(e^{j\Omega})|');
+xlim([-pi, pi]);
+xticks([-pi, -pi/2, 0, pi/2, pi]);
+xticklabels({'-\pi', '-\pi/2', '0', '\pi/2', '\pi'});
+
+%% Q2c.
+omega = linspace(-pi, pi, 1000);
+D = exp(-1j * omega);
+D_inv = exp(1j * omega);
+
+denom = (1/sqrt(5)) * D + sqrt(5/4) + (1/sqrt(5)) * D_inv;
+H = 1 ./ denom;
+
+H_mag = abs(H);
+
+figure;
+subplot(2, 1, 1);
+plot(omega, H_mag, 'LineWidth', 2);
+grid on;
+title('Magnitude Response |H(e^{j\Omega})|');
+xlabel('\Omega (radians/sample)');
+ylabel('Magnitude');
+xlim([-pi, pi]);
+xticks([-pi, -pi/2, 0, pi/2, pi]);
+xticklabels({'-\pi', '-\pi/2', '0', '\pi/2', '\pi'});
