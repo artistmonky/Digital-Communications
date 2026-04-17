@@ -16,7 +16,6 @@ xticks([0, pi/2, pi]);
 xticklabels({'0', '\pi/2', '\pi'});
 %% Q2b.
 Es = 1;
-sigma_sq = 0.1
 
 U = [0.58, -0.65, 1.37,  -0.65, 0.58,  0,     0,     0,     0;
      0,    0.58,  -0.65, 1.37,  -0.65, 0.58,  0,     0,     0;
@@ -44,30 +43,33 @@ Rw = (0.1/1.89) .* [1.89, -0.9, 0.8,  0,    0;
                     0.8,  -0.9, 1.89, -0.9, 0.8,
                     0,    0.8,  -0.9, 1.89, -0.9;
                     0,    0,    0.8,  -0.9, 1.89];
-cmmse_trunc = inv(U_trunc * ctranspose(U_trunc) + (1/Es) * Rw) * U_trunc(:, 3)
+cmmse_trunc = inv(U_trunc * ctranspose(U_trunc) + (1/Es) * Rw) * U_trunc(:, 5)
 
-%% Q2d. 
-
-% Find SINR for original MMSE
+%% Q2d. Find SINR for original MMSE
 indices = 1:5;
 
 % 1. Find Signal Energy
-u_0 = U(:, 5); 
-S = abs(cmmse' * u_0)^2;
+S = 0;
+for i = indices
+    ci = cmmse(i);
+    S = S + ci * U(i, 3)
+end
 
 % 2. Find Interference Energy
-U_interfere = U;
-U_interfere(:, 5) = 0; % just the interfering symbols
-I = sum(abs(cmmse' * U_interfere).^2);
+I = 0;
+for i = indices
+    ci = cmmse(i);
+    % Sum the contributions of all intefering symbols
+    Isub = sum(U(i,:)) - U(i,3);
+    I = I + Isub;
+end
 
 % 3. Find Noise energy
 N = 0;
 for i = indices
     ci = cmmse(i);
-    N = N + ci * sigma_sq;
+    N = N + 
 end
-
-SINR = S / (I + N)
 
 
 
