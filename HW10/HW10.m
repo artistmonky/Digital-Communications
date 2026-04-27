@@ -1,5 +1,5 @@
 clear all; close all; clc;
-
+addpath 'C:\Users\Ethan\OneDrive\Documents\MATLAB\Digital Communications';
 %% Q1a. Find singular values;
 % Parameters
 N = 8;
@@ -25,3 +25,6 @@ rn = 0.5 * log2(1 + SNRn ./ Gap);
 svd_results = table((1:N)', En', rn', 'VariableNames', {'n', 'Power', 'Bit Rate'})
 
 %% Q1c. 
+% Find per subchannel rate
+rBar = sum(rn) / (N + L);
+SNRsvd = Gap * (2^(2 * rBar) - 1)

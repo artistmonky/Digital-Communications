@@ -1,5 +1,5 @@
 clear all; close all; clc;
-
+addpath 'C:\Users\Ethan\OneDrive\Documents\MATLAB\Digital Communications';
 %% Q1a. Find singular values;
 % Parameters
 N = 8;
@@ -17,8 +17,13 @@ lambdas = svd(P) % Lambdas correspond to channel gains, i.e. |h(n)|
 %% Q1b. Waterfilling to find optimal powers and bitrates
 sigma2 = 0.2;
 pTotal = (N + L) * Esbar;
-Gammas = (lambdas.^2)/(sigma2);
+Gammas = ((lambdas .^ 2) / (sigma2))';
 En = waterfill_alloc(Gammas / Gap, pTotal);
 SNRn = En .* Gammas;
-rn = 0.5 * log2(1 + )
-% bitrates = 0.5 * (log2(1 + gammas * En ./ sigma2));
+rn = 0.5 * log2(1 + SNRn ./ Gap);
+
+svd_results = table((1:N)', En', rn', 'VariableNames', {'n', 'Power', 'Bit Rate'})
+
+%% Q1c. 
+% Find per subchannel rate
+rnBar = 
