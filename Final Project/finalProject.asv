@@ -93,13 +93,12 @@ num_iterations = 10000;
 num_symbols = 1000;
 
 % Q1d.1. No matched filtering
-% TODO: CHECK IF THIS CODE IS KOSHER!
+
 for i = 1:length(sigma2_vec) % 1. Loop through each noise level
     % Initialize error probability array for current noise level
     Pe_simulation = zeros(num_iterations, 1);
     
     for j = 1:num_iterations % 2. Loop through each iteration
-        symbols = randi([0, 1], num_symbols, 1) * 2 - 1; % Generate random symbols for 2PAM. Map 0 to -1 and 1 to 1
         % Transmit symbols through the channel
         received_symbols = conv(symbols, h_n, 'same') + sqrt(sigma2_vec(i)) * randn(num_symbols, 1);
         
@@ -112,12 +111,14 @@ for i = 1:length(sigma2_vec) % 1. Loop through each noise level
     
     % 3. Average Pe across trials
     Pe_avg = mean(Pe_simulation) / num_symbols;
+
 end
 % 2. 10,000 repetitions of 1000 symbols each
 % 3. Take the average Pe across the 10,000 trials
 
 
-
+% Generate random symbols for 2PAM
+symbols = randi([0, 1], num_symbols, 1) * 2 - 1; % Map 0 to -1 and 1 to 1
 
 
 
