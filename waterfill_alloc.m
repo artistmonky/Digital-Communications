@@ -1,6 +1,7 @@
 function [powers] = waterfill_alloc(gammas, pTotal)
     % Inputs:
-    % gammas - 1 x K vector of channel gains, defined by gamma = (|h|^2)/sigma2
+    % gammas - 1 x K vector of channel gains, defined by gamma = (|h|^2)/sigma2 
+    %                                                 OR gamma = (|h|^2)/(sigma2 * Gap) for OFDM and SVD 
     % pTotal - Total allowable transmit power
     % sigma2 - Noise variance
 
