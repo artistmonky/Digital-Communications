@@ -67,24 +67,26 @@ disp('---------------------------------------------------------------------')
 disp(' ')
 
 %% Q1c. Pe for 2PAM with SNR_dB = -5:2:11
+% TODO: "we transmit 2PAM symbols over this channel without any
+% equalization" - does this mean with or without MF? Check with Faraz
 SNR_dB_vec = -5:2:11;
 SNR_linear_vec = 10.^(SNR_dB_vec / 10);
-I = Es_bar * (sum(q_n .^ 2) - (q_n(ceil(end/2)) ^ 2));
-S = mod_p^2 * Es_bar;
-sigma2_vec = S ./ SNR_linear_vec;
+I = Es_bar * (sum(q_n .^ 2) - (q_n(ceil(end/2)) ^ 2)); % TODO: If we're not supposed to use a MF, swap this for I = sum(h_n(2:end).^2) * Es_bar
+S = mod_p^2 * Es_bar; % TODO: If we're not supposed to use a MF, swap mod_p^2 with h_n(1)^2
+sigma2_vec = S ./ SNR_linear_vec; 
 
 SINR_linear_vec = zeros(size(SNR_dB_vec));
 for i = 1:length(SNR_dB_vec)
     SINR_linear_vec(i) = S / (I + sigma2_vec(i)); % Find SINR for each noise level
 end
 
-Pe_vec = zeros(size(SNR_dB_vec)); 
+Pe_vec_estimated = zeros(size(SNR_dB_vec)); 
 for i = 1:length(SNR_dB_vec)
-    Pe_vec(i) = qfunc(sqrt(SINR_linear_vec(i)));
+    Pe_vec_estimated(i) = qfunc(sqrt(SINR_linear_vec(i)));
 end
 
-Pe_results = table(SNR_dB_vec', Pe_vec', 'VariableNames', {'SNR (dB)', 'Pe'})
-
+disp('Q1c:')
+Pe_results = table(SNR_dB_vec', Pe_vec_estimated', 'VariableNames', {'SNR (dB)', 'Pe (using NNUB)'})
 disp('---------------------------------------------------------------------')
 disp(' ')
 
@@ -93,7 +95,7 @@ num_iterations = 10000;
 num_symbols = 1000;
 
 % Q1d.1. No matched filtering
-% TODO: CHECK IF THIS CODE IS KOSHER!
+Pe_vec_empirical_noMF = zeros(size(SNR_dB_vec)); 
 for i = 1:length(sigma2_vec) % 1. Loop through each noise level
     % Initialize error probability array for current noise level
     Pe_simulation = zeros(num_iterations, 1);
@@ -101,23 +103,57 @@ for i = 1:length(sigma2_vec) % 1. Loop through each noise level
     for j = 1:num_iterations % 2. Loop through each iteration
         symbols = randi([0, 1], num_symbols, 1) * 2 - 1; % Generate random symbols for 2PAM. Map 0 to -1 and 1 to 1
         % Transmit symbols through the channel
-        received_symbols = conv(symbols, h_n, 'same') + sqrt(sigma2_vec(i)) * randn(num_symbols, 1);
+        received_symbols = conv(symbols, h_n) + sqrt(sigma2_vec(i)) * randn(num_symbols + L, 1);
+        received_symbols = received_symbols(1:num_symbols); % We have to get rid of the last L taps, as it's the just channel response from the last few symbols
         
-        % Decision device for 2PAM
-        detected_symbols = received_symbols > 0; % Threshold at 0
+        % Decode symbols
+        detected_symbols = sign(received_symbols); % Threshold for 2-PAM is at 0
         
         % Calculate the number of errors
         Pe_simulation(j) = sum(detected_symbols ~= symbols);
     end
     
-    % 3. Average Pe across trials
+    % 3. Average Pe across iterations
     Pe_avg = mean(Pe_simulation) / num_symbols;
+    % Store the average Pe for the current noise level
+    Pe_vec_empirical_noMF(i) = Pe_avg; 
 end
-% 2. 10,000 repetitions of 1000 symbols each
-% 3. Take the average Pe across the 10,000 trials
 
 
+disp('Q1c:')
+Pe_results = table(SNR_dB_vec', Pe_vec_empirical_noMF', 'VariableNames', {'SNR (dB)', 'Pe (empirical, no MF)'})
+disp('---------------------------------------------------------------------')
+disp(' ') 
 
+% Q1d.2. With Matched filtering
+% Recall that p[n] = h[n]. Thus:
+% g_MF = p*[-n] / ||p||
+%      = h*[-n] / ||h||
+g_MF = fliplr(h_n) / mod_h; % NOTE! THIS FLIPS IT BUT THEN PUSHES THE FIRST INDEX TO t = 0. We'll need to sample starting from L + 1.
+
+Pe_vec_empirical_MF = zeros(size(SNR_dB_vec)); 
+for i = 1:length(sigma2_vec) % 1. Loop through each noise level
+    % Initialize error probability array for current noise level
+    Pe_simulation = zeros(num_iterations, 1);
+    
+    for j = 1:num_iterations % 2. Loop through each iteration
+        symbols = randi([0, 1], num_symbols, 1) * 2 - 1; % Generate random symbols for 2PAM. Map 0 to -1 and 1 to 1
+        % Transmit symbols through the channel
+        received_symbols = conv(symbols, h_n) + sqrt(sigma2_vec(i)) * randn(num_symbols + L, 1);
+        received_symbols = received_symbols(1:num_symbols); % We have to get rid of the last L taps, as it's the just channel response from the last few symbols
+        
+        % Decode symbols
+        detected_symbols = sign(received_symbols); % Threshold for 2-PAM is at 0
+        
+        % Calculate the number of errors
+        Pe_simulation(j) = sum(detected_symbols ~= symbols);
+    end
+    
+    % 3. Average Pe across iterations
+    Pe_avg = mean(Pe_simulation) / num_symbols;
+    % Store the average Pe for the current noise level
+    Pe_vec_empirical_MF(i) = Pe_avg; 
+end
 
 
 
