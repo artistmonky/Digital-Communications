@@ -45,7 +45,7 @@ disp('q[n]:');
 disp(q_n);
 
 figure;
-freqz(q_n, 1, 1024, 'whole');
+freqz(q_n, 1, 1024);
 title('Frequency Response |Q(w)|');
 xlabel('Normalized Frequency (\times\pi rad/sample)');
 ylabel('Magnitude (dB)');
@@ -120,7 +120,7 @@ for i = 1:length(sigma2_vec) % 1. Loop through each noise level
 end
 
 
-disp('Q1c:')
+disp('Q1d:')
 Pe_results = table(SNR_dB_vec', Pe_vec_empirical_noMF', 'VariableNames', {'SNR (dB)', 'Pe (empirical, no MF)'})
 disp('---------------------------------------------------------------------')
 disp(' ') 
@@ -129,33 +129,59 @@ disp(' ')
 % Recall that p[n] = h[n]. Thus:
 % g_MF = p*[-n] / ||p||
 %      = h*[-n] / ||h||
-g_MF = fliplr(h_n) / mod_h; % NOTE! THIS FLIPS IT BUT THEN PUSHES THE FIRST INDEX TO t = 0. We'll need to sample starting from L + 1.
+g_MF = fliplr(h_n) / mod_h; % NOTE! THIS FLIPS IT BUT THEN PUSHES THE FIRST INDEX TO t = 0. This MF is CAUSAL. We'll need to sample starting from L + 1.
 
 Pe_vec_empirical_MF = zeros(size(SNR_dB_vec)); 
 for i = 1:length(sigma2_vec) % 1. Loop through each noise level
     % Initialize error probability array for current noise level
-    Pe_simulation = zeros(num_iterations, 1);
+    Pe_simulation_MF = zeros(num_iterations, 1);
     
     for j = 1:num_iterations % 2. Loop through each iteration
         symbols = randi([0, 1], num_symbols, 1) * 2 - 1; % Generate random symbols for 2PAM. Map 0 to -1 and 1 to 1
-        % Transmit symbols through the channel
-        received_symbols = conv(symbols, h_n) + sqrt(sigma2_vec(i)) * randn(num_symbols + L, 1);
-        received_symbols = received_symbols(1:num_symbols); % We have to get rid of the last L taps, as it's the just channel response from the last few symbols
         
-        % Decode symbols
-        detected_symbols = sign(received_symbols); % Threshold for 2-PAM is at 0
+        received_symbols_full = conv(symbols, h_n) + sqrt(sigma2_vec(i)) * randn(num_symbols + L, 1);
         
-        % Calculate the number of errors
-        Pe_simulation(j) = sum(detected_symbols ~= symbols);
+        % Pass through Matched Filter
+        mf_output = conv(received_symbols_full, g_MF);
+        
+        %Start sampling at L + 1.
+        sampled_mf_output = mf_output(L + 1 : L + num_symbols);
+        
+        detected_symbols_MF = sign(sampled_mf_output);
+        
+        Pe_simulation_MF(j) = sum(detected_symbols_MF ~= symbols);     
     end
     
     % 3. Average Pe across iterations
-    Pe_avg = mean(Pe_simulation) / num_symbols;
+    Pe_avg = mean(Pe_simulation_MF) / num_symbols;
     % Store the average Pe for the current noise level
     Pe_vec_empirical_MF(i) = Pe_avg; 
 end
 
 
-
+disp('Q1d:')
+Pe_results = table(SNR_dB_vec', Pe_vec_empirical_MF', 'VariableNames', {'SNR (dB)', 'Pe (empirical, with MF)'})
 disp('---------------------------------------------------------------------')
-disp(' ')
+disp(' ') 
+
+figure
+plot(SNR_dB_vec, Pe_vec_estimated, 'k-', 'LineWidth', 2);
+hold on;
+plot(SNR_dB_vec, Pe_vec_empirical_noMF, 'bo-', 'LineWidth', 1.5, 'MarkerSize', 6);
+plot(SNR_dB_vec, Pe_vec_empirical_MF, 'rx--', 'LineWidth', 1.5, 'MarkerSize', 8);
+hold off;
+
+grid on;
+xlabel('SNR (dB)');
+ylabel('Probability of Error (Pe)');
+title('Comparison of Theoretical vs Empirical Error Probabilities');
+legend('Theoretical (NNUB + MF)', 'Empirical (No MF)', 'Empirical (With MF)', 'Location', 'best');
+
+% disp('Hi!! If this doesnt appear something is wrong')
+
+% Q: Why there is a gap between the theoretical and simulated results? 
+% A:
+
+% Q: Under what conditions is the use of a matched filter beneficial? Provide an intuitive justification
+% A: 
+
