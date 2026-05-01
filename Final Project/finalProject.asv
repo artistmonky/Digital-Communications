@@ -203,8 +203,6 @@ for i = 1:L
     U(i, i:i+length(q_n)-1) = q_n;
 end
 
-czf = inv(U * ctranspose(U)) * U(:, ceil((N+1)/2))
-
-
+czf = inv(U * ctranspose(U)) * ;
 
 
