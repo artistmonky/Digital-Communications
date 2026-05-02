@@ -70,12 +70,13 @@ disp(' ')
 
 %% Q1c. Pe for 2PAM with SNR_dB = -5:2:11
 % TODO: "we transmit 2PAM symbols over this channel without any
-% equalization" - does this mean with or without MF? Check with Faraz
+% equalization" - does this mean with or without MF? Check with Faraz.
+% Faraz says we do use a MF! But treat the given SNRs to be SNR = Esbar / sigma2.
 SNR_dB_vec = -5:2:11;
 SNR_linear_vec = 10.^(SNR_dB_vec / 10);
 I = Es_bar * (sum(q_n .^ 2) - (q_n(ceil(end/2)) ^ 2)); % TODO: If we're not supposed to use a MF, swap this for I = sum(h_n(2:end).^2) * Es_bar
 S = mod_p^2 * Es_bar; % TODO: If we're not supposed to use a MF, swap mod_p^2 with h_n(1)^2
-sigma2_vec = S ./ SNR_linear_vec; 
+sigma2_vec = Es_bar ./ SNR_linear_vec; 
 
 SINR_linear_vec = zeros(size(SNR_dB_vec));
 for i = 1:length(SNR_dB_vec)
@@ -203,8 +204,97 @@ for i = 1:L
     U(i, i:i+length(q_n)-1) = q_n;
 end
 
-czf = inv(U * ctranspose(U)) * U(:, ceil((N+1)/2))
+%% Q2b. Finding ZF equalizer
+czf = inv(U * ctranspose(U)) * U(:, ceil((N+1)/2)) % ZF Equalizer
+
+%% Q2c. Determine MMSE Equalizer for SNR = 11dB
+
+% 1. Calculate noise variance for 11 dB
+SNR_11_dB = 11;
+SNR_11_linear = 10^(SNR_11_dB / 10);
+sigma2_11dB = Es_bar / SNR_11_linear;
+
+% 2. Find noise covariance matrix
+row = [q_n(5:9), zeros(1, 8)];
+Rw = (sigma2_11dB / mod_p) * toeplitz(row) % TODO: Think about this a little more
+
+% 3. Plug the formula in
+cmmse = inv(U * ctranspose(U) + Rw) * U(:, ceil((N+1)/2)) % Didn't include 1/Es_bar since Es_bar is 1
 
 
+%% Q2d. Simulating ZF and MMSE Performance
+num_iterations = 10000;
+num_symbols = 1000;
+L_eq = 13
+
+Pe_vec_empirical_ZF = zeros(size(SNR_dB_vec)); 
+for i = 1:length(sigma2_vec) % 1. Loop through each noise level
+    % Initialize error probability array for current noise level
+    Pe_simulation = zeros(num_iterations, 1);
+    
+    for j = 1:num_iterations % 2. Loop through each iteration
+        symbols = randi([0, 1], num_symbols, 1) * 2 - 1; % Generate random symbols for 2PAM. Map 0 to -1 and 1 to 1
+        % Transmit symbols through the channel
+        received_symbols = conv(symbols, h_n) + sqrt(sigma2_vec(i)) * randn(num_symbols + 4, 1);
+        received_symbols = received_symbols(1:num_symbols); % We have to get rid of the last 4 taps, as it's the just channel response from the last few symbols
+        
+        % Push received symbols through zero forcing equalizer
+
+        equalized_symbols = conv(received_symbols, czf);
+        equalized_symbols = equalized_symbols(ceil(L_eq/2) : floor(L_eq/2) + num_symbols);
+
+        % Decode symbols
+        detected_symbols = sign(equalized_symbols); % Threshold for 2-PAM is at 0
+        
+        % Calculate the number of errors
+        Pe_simulation(j) = sum(detected_symbols ~= symbols);
+    end
+    
+    % 3. Average Pe across iterations
+    Pe_avg = mean(Pe_simulation) / num_symbols;
+    % Store the average Pe for the current noise level
+    Pe_vec_empirical_ZF(i) = Pe_avg; 
+end
 
 
+Pe_vec_empirical_MMSE = zeros(size(SNR_dB_vec)); 
+for i = 1:length(sigma2_vec) % 1. Loop through each noise level
+    % Initialize error probability array for current noise level
+    Pe_simulation = zeros(num_iterations, 1);
+    
+    for j = 1:num_iterations % 2. Loop through each iteration
+        symbols = randi([0, 1], num_symbols, 1) * 2 - 1; % Generate random symbols for 2PAM. Map 0 to -1 and 1 to 1
+        % Transmit symbols through the channel
+        received_symbols = conv(symbols, h_n) + sqrt(sigma2_vec(i)) * randn(num_symbols + 4, 1);
+        received_symbols = received_symbols(1:num_symbols); % We have to get rid of the last 4 taps, as it's the just channel response from the last few symbols
+        
+        % Push received symbols through MMSE equalizer
+
+        equalized_symbols = conv(received_symbols, cmmse);
+        equalized_symbols = equalized_symbols(ceil(L_eq/2) : floor(L_eq/2) + num_symbols);
+
+        % Decode symbols
+        detected_symbols = sign(equalized_symbols); % Threshold for 2-PAM is at 0
+        
+        % Calculate the number of errors
+        Pe_simulation(j) = sum(detected_symbols ~= symbols);
+    end
+    
+    % 3. Average Pe across iterations
+    Pe_avg = mean(Pe_simulation) / num_symbols;
+    % Store the average Pe for the current noise level
+    Pe_vec_empirical_MMSE(i) = Pe_avg; 
+end
+
+figure
+plot(SNR_dB_vec, Pe_vec_estimated, 'k-', 'LineWidth', 2);
+hold on;
+plot(SNR_dB_vec, Pe_vec_empirical_ZF, 'bo-', 'LineWidth', 1.5, 'MarkerSize', 6);
+plot(SNR_dB_vec, Pe_vec_empirical_MMSE, 'rx--', 'LineWidth', 1.5, 'MarkerSize', 8);
+hold off;
+
+grid on;
+xlabel('SNR (dB)');
+ylabel('Probability of Error (Pe)');
+title('Comparison of Theoretical vs Equalized Probabilities');
+legend('Theoretical (NNUB + MF)', 'Empirical (ZF)', 'Empirical (MMSE)', 'Location', 'best');
